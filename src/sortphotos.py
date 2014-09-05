@@ -201,7 +201,6 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, removeDup
         date = check_for_early_morning_photos(date, day_begins)
 
         # create folder structure
-        model = purge_string(model)
         dir_structure = date.strftime(sort_format)
         dirs = dir_structure.split('/')
         dest_file = dest_dir
@@ -215,6 +214,7 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, removeDup
             basename, ext = os.path.splitext(os.path.basename(src_file))
             if model is None:
                 model = basename
+	    model = purge_string(model)
             new_fname = '{}_{}{}'.format(date.strftime('%Y-%m-%d_%H%M%S'), model, ext)
             dest_file = os.path.join(dest_file, new_fname)
         else:
@@ -272,7 +272,7 @@ The default is '%%Y/%%m', which separates by year then month (e.g., 2012/11).")
     parser.add_argument('--keep-duplicates', action='store_true',
                         help='If file is a duplicate keep it anyway (after renmaing).')
     parser.add_argument('--extensions', type=str, nargs='+',
-                        default=['jpg', 'jpeg', 'tiff', 'arw', 'avi', 'mov', 'mp4', 'mts'],
+                        default=['jpg', 'jpeg', 'tiff', 'arw', 'avi', 'mov', 'mp4', 'mts','mkv'],
                         help='file types to sort')
     parser.add_argument('--ignore-exif', action='store_true',
                         help='always use file time stamp even if EXIF data exists')
