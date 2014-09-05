@@ -107,6 +107,10 @@ def get_creation_time(path):
         raise OSError(p.stderr.read().rstrip())
     else:
         return int(p.stdout.read())
+        
+def purge_string(s):
+    allowed = '.0123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz'
+    return ''.join([x for x in s if x in allowed])
 
 # ---------------------------------------
 
@@ -115,8 +119,8 @@ def get_creation_time(path):
 
 # --------- main script -----------------
 
-def sortPhotos(src_dir, dest_dir, extensions, sort_format, move_files, removeDuplicates,
-               ignore_exif, day_begins):
+def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, removeDuplicates,
+               ignore_exif, day_begins, rename=True):
 
 
     # some error checking
@@ -167,14 +171,12 @@ def sortPhotos(src_dir, dest_dir, extensions, sort_format, move_files, removeDup
 
         if ignore_exif:
             date = parse_date_tstamp(src_file)
+            model = None
 
         else:
             # open file
-            f = open(src_file, 'rb')
-
-            tags = exifread.process_file(f, details=False)
-
-            f.close()
+            with open(src_file, 'rb') as f:
+                tags = exifread.process_file(f, details=False)
 
             # look for date in EXIF data
             if 'EXIF DateTimeOriginal' in tags and valid_date(tags['EXIF DateTimeOriginal']):
@@ -189,11 +191,17 @@ def sortPhotos(src_dir, dest_dir, extensions, sort_format, move_files, removeDup
             else:  # use file time stamp if no valid EXIF data
                 date = parse_date_tstamp(src_file)
 
+            try:
+                model = tags['Image Model'].values
+            except:
+                model = None
+            
 
         # early morning photos can be grouped with previous day (depending on user setting)
         date = check_for_early_morning_photos(date, day_begins)
 
         # create folder structure
+        model = purge_string(model)
         dir_structure = date.strftime(sort_format)
         dirs = dir_structure.split('/')
         dest_file = dest_dir
@@ -203,7 +211,14 @@ def sortPhotos(src_dir, dest_dir, extensions, sort_format, move_files, removeDup
                 os.makedirs(dest_file)
 
         # setup destination file
-        dest_file = os.path.join(dest_file, os.path.basename(src_file))
+        if rename:
+            basename, ext = os.path.splitext(os.path.basename(src_file))
+            if model is None:
+                model = basename
+            new_fname = '{}_{}{}'.format(date.strftime('%Y-%m-%d_%H%M%S'), model, ext)
+            dest_file = os.path.join(dest_file, new_fname)
+        else:
+            dest_file = os.path.join(dest_file, os.path.basename(src_file))
         root, ext = os.path.splitext(dest_file)
 
         # check for collisions
@@ -249,12 +264,11 @@ if __name__ == '__main__':
     parser.add_argument('src_dir', type=str, help='source directory (searched recursively)')
     parser.add_argument('dest_dir', type=str, help='destination directory')
     parser.add_argument('-m', '--move', action='store_true', help='move files instead of copy')
-    parser.add_argument('-s', '--sort', type=str, default='%Y/%m-%b',
+    parser.add_argument('-s', '--sort', type=str, default='%Y/%m',
                         help="choose destination folder structure using datetime format \n\
 https://docs.python.org/2/library/datetime.html#strftime-and-strptime-behavior. \n\
 Use forward slashes / to indicate subdirectory(ies) (independent of your OS convention). \n\
-The default is '%%Y/%%m-%%b', which separates by year then month \n\
-with both the month number and name (e.g., 2012/12-Feb).")
+The default is '%%Y/%%m', which separates by year then month (e.g., 2012/11).")
     parser.add_argument('--keep-duplicates', action='store_true',
                         help='If file is a duplicate keep it anyway (after renmaing).')
     parser.add_argument('--extensions', type=str, nargs='+',
@@ -264,13 +278,14 @@ with both the month number and name (e.g., 2012/12-Feb).")
                         help='always use file time stamp even if EXIF data exists')
     parser.add_argument('--day-begins', type=int, default=0, help='hour of day that new day begins (0-23), \n\
 defaults to 0 which corresponds to midnight.  Useful for grouping pictures with previous day.')
+    parser.add_argument('--keep-filenames',action='store_true',help='Do not rename the files. Default behavior is to rename the files with like 2014-09-04_FinePix_1.jpg')
 
 
     # parse command line arguments
     args = parser.parse_args()
 
-    sortPhotos(args.src_dir, args.dest_dir, args.extensions, args.sort,
-              args.move, not args.keep_duplicates, args.ignore_exif, args.day_begins)
+    sortphotos(args.src_dir, args.dest_dir, args.extensions, args.sort,
+              args.move, not args.keep_duplicates, args.ignore_exif, args.day_begins, rename=not args.keep_filenames)
 
 
 
