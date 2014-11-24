@@ -82,10 +82,6 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, removeDup
             model = None
 
         else:
-            # open file
-            with open(src_file, 'rb') as f:
-                tags = exifread.process_file(f, details=False)
-
             # look for date in EXIF data
             date_tags = ['Date and Time (Original)', 'Date and Time (Digitized)', 'Date and Time']
             date = None
