@@ -28,7 +28,7 @@ def cmd_exif(tag, fname, command="exif"):
 
 # --------- main script -----------------
 
-def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, removeDuplicates,
+def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_duplicates,
                ignore_exif, rename=True):
 
 
@@ -77,25 +77,23 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, removeDup
 
         idx += 1
 
+#        import pdb
+#        pdb.set_trace()
+        # use file time stamp if no valid EXIF data
+        date = datetime.fromtimestamp(os.path.getmtime(src_file))
         if ignore_exif:
-            date = datetime.fromtimestamp(os.path.getctime(path))
             model = None
 
         else:
             # look for date in EXIF data
             date_tags = ['Date and Time (Original)', 'Date and Time (Digitized)', 'Date and Time']
-            date = None
             for tag in date_tags:
                 try:
-                    date_str = datetime.datetime.strptimecmd_exif(tag, src_file)
-                    date = datetime.datetime.strptime(date_str,"%Y:%m:%d %H:%M:%S")
+                    date_str = cmd_exif(tag, src_file)
+                    date = datetime.strptime(date_str,"%Y:%m:%d %H:%M:%S")
                     break
                 except:
                     pass
-
-            if date is None:
-                # use fildde time stamp if no valid EXIF data
-                date = parse_date_tstamp(src_file)
 
             # look for model in EXIF data
             try:
@@ -131,7 +129,7 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, removeDup
         while True:
 
             if os.path.isfile(dest_file):  # check for existing name
-                if removeDuplicates and filecmp.cmp(src_file, dest_file):  # check for identical files
+                if remove_duplicates and filecmp.cmp(src_file, dest_file):  # check for identical files
                     fileIsIdentical = True
                     break
 
@@ -144,7 +142,10 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, removeDup
 
         # finally move or copy the file
         if move_files:
-            shutil.move(src_file, dest_file)
+            if fileIsIdentical:
+                continue  # if file is same, we just ignore it 
+            else:
+                shutil.move(src_file, dest_file)
         else:
             if fileIsIdentical:
                 continue  # if file is same, we just ignore it (for copy option)
