@@ -81,6 +81,7 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_du
         sys.stdout.flush()
 
         idx += 1
+        date_fail = False
 
         # Special cases
         src_basename = os.path.basename(src_file)
@@ -117,6 +118,8 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_du
 
                 if date is None:
                     date = datetime.fromtimestamp(os.path.getmtime(src_file))
+                    date_fail = True
+                    
 
                 # look for model in EXIF data
                 try:
@@ -134,11 +137,11 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_du
                 os.makedirs(dest_file)
 
         # setup destination file
-        if rename:
+        if rename and not date_fail:
             basename, ext = os.path.splitext(os.path.basename(src_file))
             if model is None:
                 model = basename
-	    model = purge_string(model)
+            model = purge_string(model)
             new_fname = '{}_{}{}'.format(date.strftime('%Y-%m-%d_%H%M%S'), model, ext)
             dest_file = os.path.join(dest_file, new_fname)
         else:
