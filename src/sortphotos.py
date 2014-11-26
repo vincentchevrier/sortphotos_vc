@@ -10,8 +10,8 @@ import shutil
 import fnmatch
 import subprocess
 import filecmp
-from datetime import datetime, timedelta
-
+from datetime import datetime 
+import re
 
 # -------- convenience methods -------------
 
@@ -62,10 +62,15 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_du
             for match in matches:
                 matched_files.append(os.path.join(root, match))
 
-
     # setup a progress bar
     num_files = len(matched_files)
     idx = 0
+
+
+    # RE of special cases
+    r_wp_mp4 = re.compile('.*WP_([0-9]{8})_[0-9]{3}\.mp4')
+    r_gen_vid = re.compile('.*(VID|TRIM)_([0-9]{8}_[0-9]{6})\.(mp4|mkv)')
+    r_gen_img = re.compile('.*IMG_([0-9]{8}_[0-9]{6})\.(jpg|JPG)')
 
     for src_file in matched_files:
 
@@ -77,29 +82,47 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_du
 
         idx += 1
 
-#        import pdb
-#        pdb.set_trace()
-        # use file time stamp if no valid EXIF data
-        date = datetime.fromtimestamp(os.path.getmtime(src_file))
-        if ignore_exif:
-            model = None
+        # Special cases
+        src_basename = os.path.basename(src_file)
+        if r_wp_mp4.match(src_basename):
+            mo = r_wp_mp4.match(src_basename)
+            date = datetime.strptime(mo.groups()[0],'%Y%m%d')
+            model = 'WP'
+        elif r_gen_vid.match(src_basename):
+            mo = r_gen_vid.match(src_basename)
+            date = datetime.strptime(mo.groups()[1],'%Y%m%d_%H%M%S')
+            model = 'video'
+        elif r_gen_img.match(src_basename):
+            mo = r_gen_img.match(src_basename)
+            date = datetime.strptime(mo.groups()[0],'%Y%m%d_%H%M%S')
+            model = 'img'
 
+        # General case
         else:
-            # look for date in EXIF data
-            date_tags = ['Date and Time (Original)', 'Date and Time (Digitized)', 'Date and Time']
-            for tag in date_tags:
-                try:
-                    date_str = cmd_exif(tag, src_file)
-                    date = datetime.strptime(date_str,"%Y:%m:%d %H:%M:%S")
-                    break
-                except:
-                    pass
-
-            # look for model in EXIF data
-            try:
-                model = cmd_exif('Model', src_file)
-            except:
+            # use file time stamp if no valid EXIF dataa
+            if ignore_exif:
+                date = datetime.fromtimestamp(os.path.getmtime(src_file))
                 model = None
+
+            else:
+                # look for date in EXIF data
+                date_tags = ['Date and Time (Original)', 'Date and Time (Digitized)', 'Date and Time']
+                for tag in date_tags:
+                    try:
+                        date_str = cmd_exif(tag, src_file)
+                        date = datetime.strptime(date_str,"%Y:%m:%d %H:%M:%S")
+                        break
+                    except:
+                        pass
+
+                if date is None:
+                    date = datetime.fromtimestamp(os.path.getmtime(src_file))
+
+                # look for model in EXIF data
+                try:
+                    model = cmd_exif('Model', src_file)
+                except:
+                    model = None
             
         # create folder structure
         dir_structure = date.strftime(sort_format)
@@ -121,6 +144,8 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_du
         else:
             dest_file = os.path.join(dest_file, os.path.basename(src_file))
         root, ext = os.path.splitext(dest_file)
+        #force extension to be lower case
+        ext = ext.lower()
 
         # check for collisions
         append = 1
