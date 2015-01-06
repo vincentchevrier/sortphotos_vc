@@ -19,9 +19,17 @@ def purge_string(s):
     allowed = '.0123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz'
     return ''.join([x for x in s if x in allowed])
 
-def cmd_exif(tag, fname, command="exif"):
+def cmd_exif(tag, fname, command="/opt/bin/exif"):
     return subprocess.check_output([command,'-m','-t',tag,fname]).strip()
 
+def del_dirs(src_dir):
+    for dirpath, _, _ in os.walk(src_dir, topdown=False):  # Listing the files
+        if dirpath == src_dir:
+            break
+        try:
+            os.rmdir(dirpath)
+        except OSError as ex:
+            print(ex)
 # ---------------------------------------
 
 
@@ -62,6 +70,9 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_du
             for match in matches:
                 matched_files.append(os.path.join(root, match))
 
+    # Linux thumbnails are generated with @ in the filename
+    matched_files = [x for x in matched_files if "@" not in x]
+
     # setup a progress bar
     num_files = len(matched_files)
     idx = 0
@@ -82,6 +93,7 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_du
 
         idx += 1
         date_fail = False
+	date = None
 
         # Special cases
         src_basename = os.path.basename(src_file)
@@ -107,7 +119,7 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_du
 
             else:
                 # look for date in EXIF data
-                date_tags = ['Date and Time (Original)', 'Date and Time (Digitized)', 'Date and Time']
+                date_tags = ['Date and Time (original)', 'Date and Time (digitized)', 'Date and Time']
                 for tag in date_tags:
                     try:
                         date_str = cmd_exif(tag, src_file)
@@ -192,6 +204,7 @@ if __name__ == '__main__':
     parser.add_argument('src_dir', type=str, help='source directory (searched recursively)')
     parser.add_argument('dest_dir', type=str, help='destination directory')
     parser.add_argument('-m', '--move', action='store_true', help='move files instead of copy')
+    parser.add_argument('-d', '--delete-dir', action='store_true', help='Remove all empty directories from src_dir')
     parser.add_argument('-s', '--sort', type=str, default='%Y/%m',
                         help="choose destination folder structure using datetime format \n\
 https://docs.python.org/2/library/datetime.html#strftime-and-strptime-behavior. \n\
@@ -214,4 +227,7 @@ The default is '%%Y/%%m', which separates by year then month (e.g., 2012/11).")
               args.move, not args.keep_duplicates, args.ignore_exif, rename=not args.keep_filenames)
 
 
+    #If requested, remove all empty directories from source
+    if args.delete_dir:
+        del_dirs(src_dir)
 
