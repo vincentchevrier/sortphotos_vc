@@ -37,7 +37,7 @@ def del_dirs(src_dir):
 # --------- main script -----------------
 
 def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_duplicates,
-               ignore_exif, rename=True):
+               ignore_exif, rename=True, exif_path='/opt/bin/exif'):
 
 
     # some error checking
@@ -82,7 +82,7 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_du
     r_wp_mp4 = re.compile('.*WP_([0-9]{8})_[0-9]{3}\.mp4')
     r_gen_vid = re.compile('.*(VID|TRIM)_([0-9]{8}_[0-9]{6})\.(mp4|mkv)')
     r_gen_img = re.compile('.*IMG_([0-9]{8}_[0-9]{6})\.(jpg|JPG)')
-
+    
     for src_file in matched_files:
 
         # update progress bar
@@ -122,7 +122,7 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_du
                 date_tags = ['Date and Time (original)', 'Date and Time (digitized)', 'Date and Time']
                 for tag in date_tags:
                     try:
-                        date_str = cmd_exif(tag, src_file)
+                        date_str = cmd_exif(tag, src_file, command=exif_path)
                         date = datetime.strptime(date_str,"%Y:%m:%d %H:%M:%S")
                         break
                     except:
@@ -135,7 +135,7 @@ def sortphotos(src_dir, dest_dir, extensions, sort_format, move_files, remove_du
 
                 # look for model in EXIF data
                 try:
-                    model = cmd_exif('Model', src_file)
+                    model = cmd_exif('Model', src_file, command=exif_path)
                 except:
                     model = None
             
@@ -218,16 +218,17 @@ The default is '%%Y/%%m', which separates by year then month (e.g., 2012/11).")
     parser.add_argument('--ignore-exif', action='store_true',
                         help='always use file time stamp even if EXIF data exists')
     parser.add_argument('--keep-filenames',action='store_true',help='Do not rename the files. Default behavior is to rename the files, e.g. 2014-09-04_FinePix_1.jpg')
+    parser.add_argument('--exif-path', type=str, default='/opt/bin/exif', help='path to use for the terminal exif command, defaults to /opt/bin/exif')
 
 
     # parse command line arguments
     args = parser.parse_args()
 
     sortphotos(args.src_dir, args.dest_dir, args.extensions, args.sort,
-              args.move, not args.keep_duplicates, args.ignore_exif, rename=not args.keep_filenames)
+              args.move, not args.keep_duplicates, args.ignore_exif, rename=not args.keep_filenames, exif_path=args.exif_path)
 
 
     #If requested, remove all empty directories from source
     if args.delete_dir:
-        del_dirs(src_dir)
+        del_dirs(args.src_dir)
 
